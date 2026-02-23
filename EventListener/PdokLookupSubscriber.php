@@ -82,20 +82,18 @@ class PdokLookupSubscriber implements EventSubscriberInterface
         return <<<'HTML'
 <!-- PDOK Address Lookup Card — MauticGeocoderBundle -->
 <style>
-.pdok-card{background:#f5f7fa;border:1px solid #e1e5eb;border-radius:4px;padding:12px 15px;margin-bottom:15px}
-.pdok-label{display:block;margin-bottom:8px;font-weight:600;font-size:13px;color:#555}
 .pdok-inputs{display:flex;gap:6px;align-items:center}
 .pdok-inputs .form-control{flex:none;height:34px}
 #pdok-zip{width:100px}
 #pdok-num{width:70px}
 #pdok-add{width:55px}
 #pdok-btn{flex:none;padding:6px 12px;height:34px}
-.pdok-success{background:#dff0d8;border:1px solid #c3e6cb;color:#3c763d;border-radius:3px;padding:10px 12px;margin-top:10px;font-size:13px}
+.pdok-success{background:#dff0d8;border:1px solid #c3e6cb;color:#3c763d;border-radius:3px;padding:8px 10px;margin-top:8px;font-size:13px}
 .pdok-success .fa-check-circle{margin-right:4px}
-.pdok-error{background:#f2dede;border:1px solid #ebccd1;color:#a94442;border-radius:3px;padding:8px 12px;margin-top:10px;font-size:13px}
-.pdok-retry{margin-top:6px;font-size:12px;cursor:pointer;color:#4e5d9d;background:none;border:none;padding:0;text-decoration:underline}
+.pdok-error{background:#f2dede;border:1px solid #ebccd1;color:#a94442;border-radius:3px;padding:8px 10px;margin-top:8px;font-size:13px}
+.pdok-retry{margin-top:4px;font-size:12px;cursor:pointer;color:#4e5d9d;background:none;border:none;padding:0;text-decoration:underline}
 .pdok-retry:hover{color:#3d4a80}
-#pdok-detail-toggle{margin-top:15px;border:1px solid #e1e5eb;border-radius:4px;background:#fafbfc}
+#pdok-detail-toggle{margin-top:0;border:1px solid #e1e5eb;border-radius:4px;background:#fafbfc}
 #pdok-detail-toggle summary{padding:8px 12px;cursor:pointer;font-size:13px;font-weight:600;color:#777;list-style:none;display:flex;align-items:center;gap:6px}
 #pdok-detail-toggle summary::-webkit-details-marker{display:none}
 #pdok-detail-toggle summary .fa{transition:transform .2s;font-size:11px}
@@ -123,12 +121,13 @@ class PdokLookupSubscriber implements EventSubscriberInterface
         var addrGroup=addr1.closest('.form-group')||addr1.parentElement;
         if(!addrGroup)return;
 
-        // Build lookup card — insert as sibling, inherits same container width
+        // Build lookup card — matches Mautic form-group structure
         var card=document.createElement('div');
         card.id='pdok-lookup-card';
+        card.className='form-group mb-0';
         card.innerHTML=
-            '<div class="pdok-card">'+
-            '<label class="pdok-label"><i class="fa fa-map-marker"></i> Adres opzoeken (PDOK)</label>'+
+            '<label class="control-label mb-xs"><i class="fa fa-map-marker"></i> Adres opzoeken (PDOK)</label>'+
+            '<div class="row"><div class="col-sm-8">'+
             '<div class="pdok-inputs">'+
             '<input type="text" id="pdok-zip" class="form-control" placeholder="1234AB" maxlength="7" />'+
             '<input type="text" id="pdok-num" class="form-control" placeholder="Nr" maxlength="6" />'+
@@ -136,7 +135,7 @@ class PdokLookupSubscriber implements EventSubscriberInterface
             '<button type="button" id="pdok-btn" class="btn btn-default" title="Zoek adres"><i class="fa fa-search"></i></button>'+
             '</div>'+
             '<div id="pdok-result"></div>'+
-            '</div>';
+            '</div></div>';
 
         addrGroup.parentNode.insertBefore(card,addrGroup);
 
