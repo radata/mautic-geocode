@@ -11,6 +11,7 @@ Mautic 7.x plugin that automatically geocodes contact addresses into latitude/lo
 - Nominatim/OSM as fallback for non-Dutch addresses
 - Mautic REST API automatically accepts lat/lng on contact create/update
 - CLI batch command for geocoding existing contacts
+- **PDOK Lookup Card** on contact edit/new pages: postal code + house number + addition → search button fills all fields
 - Configurable: provider selection, rate limiting, overwrite policy
 - Loop prevention on contact save events
 
@@ -60,6 +61,15 @@ Update to the latest version:
 docker exec --user www-data --workdir /var/www/html mautic_web \
   composer update hollandworx/mautic-geocoder \
   -W --no-interaction --ignore-platform-req=ext-gd
+```
+
+### Versioning & Field Creation
+
+Mautic only triggers the plugin's `ON_PLUGIN_UPDATE` event (which creates new custom fields) when the version in `Config/config.php` changes. **When adding new custom fields, always bump the version number** — otherwise `mautic:plugins:reload` will report "0 updated" and skip field creation.
+
+```php
+// Config/config.php
+'version' => '1.2.0',  // bump this when adding fields
 ```
 
 ### Post-Installation
@@ -117,6 +127,19 @@ Additionally, the plugin fills these **core Mautic fields** from PDOK results:
 Hidden fields can be made visible via **Settings > Custom Fields** in Mautic.
 
 ## Usage
+
+### PDOK Lookup Card (Contact Form)
+
+When editing or creating a contact, a **PDOK address lookup card** appears above the address fields. Enter a postal code, house number, and optional addition, then click the search button (or press Enter).
+
+The card queries the PDOK Locatieserver and fills **all** address and coordinate fields in one shot:
+- Core fields: `address1`, `city`, `state`, `zipcode`, `country`
+- Coordinates: `latitude`, `longitude`
+- Detail fields: `house_number`, `house_number_addition`, `straatnaam`, `gemeente_code`, `gemeente_naam`, `provincie_code`
+
+A green confirmation card shows the resolved address with municipality and province. Click "Opnieuw zoeken" to search again.
+
+The lookup card works independently of the auto-geocode setting — it calls the PDOK API directly from the browser (no server proxy needed). When you save the contact after a lookup, the auto-geocoder will see that coordinates already exist and skip re-geocoding.
 
 ### Automatic Geocoding
 
@@ -184,7 +207,8 @@ plugins/MauticGeocoderBundle/
 │   └── GeocoderIntegration.php           # Settings UI
 ├── EventListener/
 │   ├── PluginSubscriber.php              # Creates custom fields on install
-│   └── LeadSubscriber.php                # Auto-geocodes on contact save
+│   ├── LeadSubscriber.php                # Auto-geocodes on contact save
+│   └── PdokLookupSubscriber.php          # Injects PDOK lookup card on contact form
 ├── Service/
 │   ├── ProviderInterface.php             # Geocoding provider contract
 │   ├── GeocoderService.php               # Provider selection & rate limiting
