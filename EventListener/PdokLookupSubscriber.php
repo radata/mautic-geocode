@@ -102,6 +102,18 @@ class PdokLookupSubscriber implements EventSubscriberInterface
 @keyframes pdok-spin{to{transform:rotate(360deg)}}
 .pdok-spinner{animation:pdok-spin 1s linear infinite;display:inline-block}
 </style>
+<style id="pdok-hide-fields">
+/* Hide detail fields instantly (before JS wraps them in <details>) */
+.form-group:has(#lead_straatnaam),.form-group:has(#lead_gemeente_code),
+.form-group:has(#lead_gemeente_naam),.form-group:has(#lead_provincie_code),
+.form-group:has(#lead_house_number),.form-group:has(#lead_house_number_addition),
+.form-group:has(#lead_latitude),.form-group:has(#lead_longitude),
+.form-group:has(#company_companystraatnaam),.form-group:has(#company_companygemeente_code),
+.form-group:has(#company_companygemeente_naam),.form-group:has(#company_companyprovincie_code),
+.form-group:has(#company_companyhouse_number),.form-group:has(#company_companyhouse_number_addition),
+.form-group:has(#company_companylatitude),.form-group:has(#company_companylongitude)
+{display:none!important}
+</style>
 <script>
 (function(){
     'use strict';
@@ -229,6 +241,12 @@ class PdokLookupSubscriber implements EventSubscriberInterface
 
             if(!zip||!num){
                 showMsg('error','Vul postcode en huisnummer in.');
+                return;
+            }
+
+            // Dutch postal code: 4 digits + 2 letters (e.g. 1234AB)
+            if(!/^\d{4}[A-Za-z]{2}$/.test(zip)){
+                showMsg('error','Voer een Nederlandse postcode in (bijv. 1234AB). PDOK werkt alleen voor NL-adressen.');
                 return;
             }
 
@@ -396,8 +414,13 @@ class PdokLookupSubscriber implements EventSubscriberInterface
         details.appendChild(body);
 
         groups.forEach(function(fg){
+            fg.style.display='';
             body.appendChild(fg);
         });
+
+        // Remove the instant-hide stylesheet now that fields are inside <details>
+        var hideSheet=document.getElementById('pdok-hide-fields');
+        if(hideSheet)hideSheet.remove();
     }
 
     if(document.readyState==='loading'){
