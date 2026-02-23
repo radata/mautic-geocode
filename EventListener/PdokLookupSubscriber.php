@@ -11,7 +11,7 @@ use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 
 /**
- * Injects PDOK address lookup card into the contact edit/new form.
+ * Injects PDOK address lookup card into the contact and company edit/new forms.
  *
  * The card provides postal code + house number + addition inputs with a search
  * button that queries PDOK Locatieserver and fills all address/geo fields.
@@ -43,8 +43,8 @@ class PdokLookupSubscriber implements EventSubscriberInterface
         $request = $event->getRequest();
         $uri     = $request->getPathInfo();
 
-        // Only inject on contact new/edit pages
-        if (!preg_match('#/s/contacts/(new|edit/)#', $uri)) {
+        // Inject on contact and company new/edit pages
+        if (!preg_match('#/s/(contacts|companies)/(new|edit/)#', $uri)) {
             return;
         }
 
@@ -54,7 +54,6 @@ class PdokLookupSubscriber implements EventSubscriberInterface
             if ($integration && !$integration->getIntegrationSettings()->getIsPublished()) {
                 return;
             }
-            // If integration not found (false/null), still show — plugin may not be fully registered
         } catch (\Throwable $e) {
             $this->logger->debug('Geocoder: could not check integration status, showing card anyway.');
         }
@@ -87,60 +86,113 @@ class PdokLookupSubscriber implements EventSubscriberInterface
 #pdok-zip{width:100px}
 #pdok-num{width:70px}
 #pdok-add{width:55px}
-#pdok-btn{flex:none;padding:6px 12px;height:34px}
+#pdok-btn{flex:none;padding:6px 10px;height:34px;display:inline-flex;align-items:center}
+#pdok-btn svg{vertical-align:middle}
 .pdok-success{background:#dff0d8;border:1px solid #c3e6cb;color:#3c763d;border-radius:3px;padding:8px 10px;margin-top:8px;font-size:13px}
-.pdok-success .fa-check-circle{margin-right:4px}
+.pdok-success svg{vertical-align:-2px;margin-right:4px}
 .pdok-error{background:#f2dede;border:1px solid #ebccd1;color:#a94442;border-radius:3px;padding:8px 10px;margin-top:8px;font-size:13px}
 .pdok-retry{margin-top:4px;font-size:12px;cursor:pointer;color:#4e5d9d;background:none;border:none;padding:0;text-decoration:underline}
 .pdok-retry:hover{color:#3d4a80}
 #pdok-detail-toggle{margin-top:0;border:1px solid #e1e5eb;border-radius:4px;background:#fafbfc}
 #pdok-detail-toggle summary{padding:8px 12px;cursor:pointer;font-size:13px;font-weight:600;color:#777;list-style:none;display:flex;align-items:center;gap:6px}
 #pdok-detail-toggle summary::-webkit-details-marker{display:none}
-#pdok-detail-toggle summary .fa{transition:transform .2s;font-size:11px}
-#pdok-detail-toggle[open] summary .fa{transform:rotate(90deg)}
+#pdok-detail-toggle summary svg{transition:transform .2s}
+#pdok-detail-toggle[open] summary svg{transform:rotate(90deg)}
 #pdok-detail-toggle .pdok-detail-body{padding:0 12px 12px}
+@keyframes pdok-spin{to{transform:rotate(360deg)}}
+.pdok-spinner{animation:pdok-spin 1s linear infinite;display:inline-block}
 </style>
 <script>
 (function(){
     'use strict';
 
-    // Fields to collapse (aliases)
+    // SVG icons (inline, no FA dependency)
+    var ICO_SEARCH='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
+    var ICO_SPIN='<span class="pdok-spinner">'+ICO_SEARCH+'</span>';
+    var ICO_CHECK='<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>';
+    var ICO_CARET='<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+    var ICO_PIN='<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-1px"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>';
+
+    // Contact custom fields to collapse
     var DETAIL_FIELDS=['straatnaam','gemeente_code','gemeente_naam','provincie_code',
                        'house_number','house_number_addition','latitude','longitude'];
 
+    // Form configs: contact vs company
+    var FORMS=[
+        {
+            formName:'lead',
+            addrField:'address1',
+            type:'contact',
+            fieldMap:{
+                address1:'address1', city:'city', state:'state',
+                zipcode:'zipcode', country:'country',
+                latitude:'latitude', longitude:'longitude',
+                house_number:'house_number',
+                house_number_addition:'house_number_addition',
+                straatnaam:'straatnaam',
+                gemeente_code:'gemeente_code',
+                gemeente_naam:'gemeente_naam',
+                provincie_code:'provincie_code'
+            },
+            prefillZip:'zipcode',
+            prefillNum:'house_number',
+            prefillAdd:'house_number_addition'
+        },
+        {
+            formName:'company',
+            addrField:'companyaddress1',
+            type:'company',
+            fieldMap:{
+                address1:'companyaddress1', city:'companycity',
+                state:'companystate', zipcode:'companyzipcode',
+                country:'companycountry'
+            },
+            prefillZip:'companyzipcode',
+            prefillNum:null,
+            prefillAdd:null
+        }
+    ];
+
     function init(){
-        var form=document.querySelector('form[name="lead"]');
-        if(!form)return;
         if(document.getElementById('pdok-lookup-card'))return;
 
-        // Find address1 field — this locates the address section
-        var addr1=form.querySelector('#lead_address1,[id$="_address1"],[name="lead[address1]"]');
-        if(!addr1)return;
+        for(var i=0;i<FORMS.length;i++){
+            var cfg=FORMS[i];
+            var form=document.querySelector('form[name="'+cfg.formName+'"]');
+            if(!form)continue;
 
-        // Walk up to the form-group containing address1
+            var addr1=form.querySelector('#'+cfg.formName+'_'+cfg.addrField+
+                ',[name="'+cfg.formName+'['+cfg.addrField+']"]');
+            if(!addr1)continue;
+
+            setupCard(form,addr1,cfg);
+            return;
+        }
+    }
+
+    function setupCard(form,addr1,cfg){
         var addrGroup=addr1.closest('.form-group')||addr1.parentElement;
         if(!addrGroup)return;
 
-        // Build lookup card — matches Mautic form-group structure
         var card=document.createElement('div');
         card.id='pdok-lookup-card';
         card.className='form-group mb-0';
         card.innerHTML=
-            '<label class="control-label mb-xs"><i class="fa fa-map-marker"></i> Adres opzoeken (PDOK)</label>'+
+            '<label class="control-label mb-xs">'+ICO_PIN+' Adres opzoeken (PDOK)</label>'+
             '<div class="row"><div class="col-sm-8">'+
             '<div class="pdok-inputs">'+
             '<input type="text" id="pdok-zip" class="form-control" placeholder="1234AB" maxlength="7" />'+
             '<input type="text" id="pdok-num" class="form-control" placeholder="Nr" maxlength="6" />'+
             '<input type="text" id="pdok-add" class="form-control" placeholder="Toe" maxlength="5" />'+
-            '<button type="button" id="pdok-btn" class="btn btn-default" title="Zoek adres"><i class="fa fa-search"></i></button>'+
+            '<button type="button" id="pdok-btn" class="btn btn-default" title="Zoek adres">'+ICO_SEARCH+'</button>'+
             '</div>'+
             '<div id="pdok-result"></div>'+
             '</div></div>';
 
         addrGroup.parentNode.insertBefore(card,addrGroup);
 
-        // Wrap detail fields in a collapsible section
-        wrapDetailFields(form);
+        // Wrap detail fields for contacts only
+        if(cfg.type==='contact') wrapDetailFields(form,cfg);
 
         var btn=document.getElementById('pdok-btn');
         var zipIn=document.getElementById('pdok-zip');
@@ -149,12 +201,18 @@ class PdokLookupSubscriber implements EventSubscriberInterface
         var resultDiv=document.getElementById('pdok-result');
 
         // Pre-fill from existing form values
-        var eZip=getVal('zipcode');
-        var eNum=getVal('house_number');
-        var eAdd=getVal('house_number_addition');
-        if(eZip)zipIn.value=eZip.replace(/\s/g,'');
-        if(eNum)numIn.value=eNum;
-        if(eAdd)addIn.value=eAdd;
+        if(cfg.prefillZip){
+            var eZip=getVal(form,cfg,cfg.prefillZip);
+            if(eZip)zipIn.value=eZip.replace(/\s/g,'');
+        }
+        if(cfg.prefillNum){
+            var eNum=getVal(form,cfg,cfg.prefillNum);
+            if(eNum)numIn.value=eNum;
+        }
+        if(cfg.prefillAdd){
+            var eAdd=getVal(form,cfg,cfg.prefillAdd);
+            if(eAdd)addIn.value=eAdd;
+        }
 
         function doSearch(){
             var zip=zipIn.value.trim().replace(/\s/g,'');
@@ -167,7 +225,7 @@ class PdokLookupSubscriber implements EventSubscriberInterface
             }
 
             btn.disabled=true;
-            btn.innerHTML='<i class="fa fa-spinner fa-spin"></i>';
+            btn.innerHTML=ICO_SPIN;
             resultDiv.innerHTML='';
 
             var q=zip+' '+num;
@@ -180,7 +238,7 @@ class PdokLookupSubscriber implements EventSubscriberInterface
                 .then(function(r){return r.json();})
                 .then(function(data){
                     btn.disabled=false;
-                    btn.innerHTML='<i class="fa fa-search"></i>';
+                    btn.innerHTML=ICO_SEARCH;
 
                     if(!data.response||!data.response.docs||!data.response.docs.length){
                         showMsg('error','Geen adres gevonden voor deze combinatie.');
@@ -188,12 +246,12 @@ class PdokLookupSubscriber implements EventSubscriberInterface
                     }
 
                     var doc=data.response.docs[0];
-                    applyToForm(doc);
+                    applyToForm(form,cfg,doc);
                     showSuccess(doc);
                 })
                 .catch(function(err){
                     btn.disabled=false;
-                    btn.innerHTML='<i class="fa fa-search"></i>';
+                    btn.innerHTML=ICO_SEARCH;
                     showMsg('error','Fout bij opzoeken: '+err.message);
                 });
         }
@@ -206,74 +264,6 @@ class PdokLookupSubscriber implements EventSubscriberInterface
             });
         });
 
-        function applyToForm(doc){
-            var wkt=doc.centroide_ll||'';
-            var m=wkt.match(/POINT\(([^ ]+) ([^)]+)\)/);
-            var lat=m?parseFloat(m[2]).toFixed(8):'';
-            var lng=m?parseFloat(m[1]).toFixed(8):'';
-
-            var street=doc.straatnaam||'';
-            var hnum=doc.huisnummer?String(doc.huisnummer):'';
-            var hlet=doc.huisletter||'';
-
-            var addr=street;
-            if(hnum)addr+=' '+hnum;
-            if(hlet)addr+=hlet;
-
-            setVal('address1',addr);
-            setVal('city',doc.woonplaatsnaam||'');
-            setVal('state',doc.provincienaam||'');
-            setVal('zipcode',doc.postcode||'');
-            setVal('country','Netherlands');
-            setVal('latitude',lat);
-            setVal('longitude',lng);
-            setVal('house_number',hnum);
-            setVal('house_number_addition',hlet);
-            setVal('straatnaam',street);
-            setVal('gemeente_code',doc.gemeentecode||'');
-            setVal('gemeente_naam',doc.gemeentenaam||'');
-            setVal('provincie_code',doc.provinciecode||'');
-        }
-
-        function findField(alias){
-            return form.querySelector(
-                '#lead_'+alias+
-                ',#lead_field_'+alias+
-                ',[name="lead['+alias+']"]'
-            );
-        }
-
-        function getVal(alias){
-            var f=findField(alias);
-            return f?f.value:'';
-        }
-
-        function setVal(alias,value){
-            var field=findField(alias);
-            if(!field)return;
-
-            if(field.tagName==='SELECT'){
-                var opts=field.options;
-                for(var i=0;i<opts.length;i++){
-                    if(opts[i].value===value||opts[i].textContent.trim()===value){
-                        field.value=opts[i].value;
-                        break;
-                    }
-                }
-                if(window.jQuery){
-                    window.jQuery(field).val(field.value)
-                        .trigger('chosen:updated')
-                        .trigger('change.select2')
-                        .trigger('change');
-                }
-            }else{
-                field.value=value;
-            }
-
-            field.dispatchEvent(new Event('input',{bubbles:true}));
-            field.dispatchEvent(new Event('change',{bubbles:true}));
-        }
-
         function showSuccess(doc){
             var street=doc.straatnaam||'';
             var hnum=doc.huisnummer?String(doc.huisnummer):'';
@@ -282,7 +272,7 @@ class PdokLookupSubscriber implements EventSubscriberInterface
 
             resultDiv.innerHTML=
                 '<div class="pdok-success">'+
-                '<i class="fa fa-check-circle"></i> '+
+                ICO_CHECK+' '+
                 '<strong>'+addr+', '+(doc.postcode||'')+' '+(doc.woonplaatsnaam||'')+'</strong>'+
                 '<br/><small>Gemeente: '+(doc.gemeentenaam||'')+' &bull; Provincie: '+(doc.provincienaam||'')+'</small>'+
                 '</div>'+
@@ -305,15 +295,78 @@ class PdokLookupSubscriber implements EventSubscriberInterface
         }
     }
 
-    /**
-     * Find detail field form-groups and wrap them in a collapsible <details>.
-     */
-    function wrapDetailFields(form){
+    function applyToForm(form,cfg,doc){
+        var wkt=doc.centroide_ll||'';
+        var m=wkt.match(/POINT\(([^ ]+) ([^)]+)\)/);
+        var lat=m?parseFloat(m[2]).toFixed(8):'';
+        var lng=m?parseFloat(m[1]).toFixed(8):'';
+
+        var street=doc.straatnaam||'';
+        var hnum=doc.huisnummer?String(doc.huisnummer):'';
+        var hlet=doc.huisletter||'';
+
+        var addr=street;
+        if(hnum)addr+=' '+hnum;
+        if(hlet)addr+=hlet;
+
+        var values={
+            address1:addr, city:doc.woonplaatsnaam||'',
+            state:doc.provincienaam||'', zipcode:doc.postcode||'',
+            country:'Netherlands', latitude:lat, longitude:lng,
+            house_number:hnum, house_number_addition:hlet,
+            straatnaam:street, gemeente_code:doc.gemeentecode||'',
+            gemeente_naam:doc.gemeentenaam||'', provincie_code:doc.provinciecode||''
+        };
+
+        for(var key in cfg.fieldMap){
+            if(!cfg.fieldMap.hasOwnProperty(key))continue;
+            if(values[key]===undefined)continue;
+            setVal(form,cfg,cfg.fieldMap[key],values[key]);
+        }
+    }
+
+    function findField(form,cfg,alias){
+        return form.querySelector(
+            '#'+cfg.formName+'_'+alias+
+            ',[name="'+cfg.formName+'['+alias+']"]'
+        );
+    }
+
+    function getVal(form,cfg,alias){
+        var f=findField(form,cfg,alias);
+        return f?f.value:'';
+    }
+
+    function setVal(form,cfg,alias,value){
+        var field=findField(form,cfg,alias);
+        if(!field)return;
+
+        if(field.tagName==='SELECT'){
+            var opts=field.options;
+            for(var i=0;i<opts.length;i++){
+                if(opts[i].value===value||opts[i].textContent.trim()===value){
+                    field.value=opts[i].value;
+                    break;
+                }
+            }
+            if(window.jQuery){
+                window.jQuery(field).val(field.value)
+                    .trigger('chosen:updated')
+                    .trigger('change.select2')
+                    .trigger('change');
+            }
+        }else{
+            field.value=value;
+        }
+
+        field.dispatchEvent(new Event('input',{bubbles:true}));
+        field.dispatchEvent(new Event('change',{bubbles:true}));
+    }
+
+    function wrapDetailFields(form,cfg){
         var groups=[];
         DETAIL_FIELDS.forEach(function(alias){
-            var field=form.querySelector(
-                '#lead_'+alias+',#lead_field_'+alias+',[name="lead['+alias+']"]'
-            );
+            var field=findField(form,cfg,alias);
             if(!field)return;
             var fg=field.closest('.form-group');
             if(fg && groups.indexOf(fg)===-1) groups.push(fg);
@@ -321,34 +374,29 @@ class PdokLookupSubscriber implements EventSubscriberInterface
 
         if(!groups.length)return;
 
-        // Find common parent
         var parent=groups[0].parentNode;
 
         var details=document.createElement('details');
         details.id='pdok-detail-toggle';
-        details.innerHTML='<summary><i class="fa fa-caret-right"></i> Geocode details ('+groups.length+' velden)</summary>';
+        details.innerHTML='<summary>'+ICO_CARET+' Geocode details ('+groups.length+' velden)</summary>';
 
         var body=document.createElement('div');
         body.className='pdok-detail-body';
 
-        // Insert details element before the first detail field group
         parent.insertBefore(details,groups[0]);
         details.appendChild(body);
 
-        // Move all detail field groups into the collapsible body
         groups.forEach(function(fg){
             body.appendChild(fg);
         });
     }
 
-    // Run when DOM is ready
     if(document.readyState==='loading'){
         document.addEventListener('DOMContentLoaded',init);
     }else{
         init();
     }
 
-    // Also handle AJAX-loaded forms (Mautic modals)
     if(window.jQuery){
         jQuery(document).on('ajaxComplete',function(){
             setTimeout(init,200);
