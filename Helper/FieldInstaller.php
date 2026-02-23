@@ -97,9 +97,16 @@ class FieldInstaller
             $existing = $this->fieldModel->getEntityByAlias($config['alias']);
 
             if ($existing) {
-                $this->logger->info('Geocoder: field "{alias}" already exists, skipping.', [
-                    'alias' => $config['alias'],
-                ]);
+                // Update visibility if it changed
+                $shouldBeVisible = $config['visible'] ?? true;
+                if ($existing->getIsVisible() !== $shouldBeVisible) {
+                    $existing->setIsVisible($shouldBeVisible);
+                    $this->fieldModel->saveEntity($existing);
+                    $this->logger->info('Geocoder: updated visibility for field "{alias}" → {visible}.', [
+                        'alias'   => $config['alias'],
+                        'visible' => $shouldBeVisible ? 'visible' : 'hidden',
+                    ]);
+                }
                 continue;
             }
 
@@ -132,7 +139,13 @@ class FieldInstaller
     public function fieldsExist(): bool
     {
         foreach (self::FIELDS as $config) {
-            if (null === $this->fieldModel->getEntityByAlias($config['alias'])) {
+            $field = $this->fieldModel->getEntityByAlias($config['alias']);
+            if (null === $field) {
+                return false;
+            }
+            // Also return false if visibility needs updating
+            $shouldBeVisible = $config['visible'] ?? true;
+            if ($field->getIsVisible() !== $shouldBeVisible) {
                 return false;
             }
         }

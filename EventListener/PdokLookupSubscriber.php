@@ -48,16 +48,15 @@ class PdokLookupSubscriber implements EventSubscriberInterface
             return;
         }
 
-        // Check plugin is published (getIntegrationObject returns false when not found)
+        // Only hide the card if the plugin is explicitly disabled
         try {
             $integration = $this->integrationHelper->getIntegrationObject('Geocoder');
-            if (!$integration || !$integration->getIntegrationSettings()->getIsPublished()) {
+            if ($integration && !$integration->getIntegrationSettings()->getIsPublished()) {
                 return;
             }
+            // If integration not found (false/null), still show — plugin may not be fully registered
         } catch (\Throwable $e) {
-            $this->logger->debug('Geocoder: could not check integration status: '.$e->getMessage());
-
-            return;
+            $this->logger->debug('Geocoder: could not check integration status, showing card anyway.');
         }
 
         $response = $event->getResponse();
