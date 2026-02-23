@@ -30,6 +30,11 @@ class GeocoderService
 
         $settings = $integration->getIntegrationSettings()->getFeatureSettings();
 
+        // Default to enabled when feature settings haven't been saved yet
+        if (empty($settings)) {
+            return true;
+        }
+
         return !empty($settings['auto_geocode']);
     }
 
