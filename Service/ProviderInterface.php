@@ -17,9 +17,11 @@ interface ProviderInterface
      * Build an optimized query string from address components.
      */
     public function buildQuery(
+        string $zipcode,
+        string $houseNumber,
+        string $houseNumberAddition,
         string $address1,
         string $city,
-        string $zipcode,
         string $country,
     ): string;
 

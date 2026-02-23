@@ -53,7 +53,7 @@ class PdokProvider implements ProviderInterface
             $data = json_decode($response, true);
 
             if (empty($data['response']['docs'])) {
-                $this->logger->debug('Geocoder PDOK: no results for query "{query}".', [
+                $this->logger->info('Geocoder PDOK: no results for query "{query}".', [
                     'query' => $query,
                 ]);
 
@@ -68,7 +68,7 @@ class PdokProvider implements ProviderInterface
                 $lng = (float) $matches[1];
                 $lat = (float) $matches[2];
 
-                $this->logger->debug('Geocoder PDOK: resolved "{query}" to {lat}, {lng}.', [
+                $this->logger->info('Geocoder PDOK: "{query}" → {lat}, {lng}', [
                     'query' => $query,
                     'lat'   => $lat,
                     'lng'   => $lng,
@@ -94,35 +94,34 @@ class PdokProvider implements ProviderInterface
     }
 
     public function buildQuery(
+        string $zipcode,
+        string $houseNumber,
+        string $houseNumberAddition,
         string $address1,
         string $city,
-        string $zipcode,
         string $country,
     ): string {
-        $parts = [];
+        // Best: zipcode + house_number + addition (dedicated fields)
+        if ('' !== $zipcode && '' !== $houseNumber) {
+            $query = $zipcode.' '.$houseNumber;
+            if ('' !== $houseNumberAddition) {
+                $query .= $houseNumberAddition;
+            }
 
-        // For PDOK, zipcode + house number is the most accurate query
+            return $query;
+        }
+
+        // Fallback: zipcode + extract number from address1
         if ('' !== $zipcode) {
-            // Extract house number from address1 (e.g., "Lotusbloemweg 88" -> "88")
-            $houseNumber = '';
+            $num = '';
             if ('' !== $address1 && preg_match('/(\d+)/', $address1, $matches)) {
-                $houseNumber = $matches[1];
+                $num = $matches[1];
             }
 
-            $parts[] = $zipcode;
-
-            if ('' !== $houseNumber) {
-                $parts[] = $houseNumber;
-            }
-        } elseif ('' !== $address1) {
-            // Fallback: use full address
-            $parts[] = $address1;
+            return '' !== $num ? $zipcode.' '.$num : $zipcode.' '.$city;
         }
 
-        if ('' !== $city) {
-            $parts[] = $city;
-        }
-
-        return implode(' ', $parts);
+        // Last resort: address1 + city
+        return trim($address1.' '.$city);
     }
 }

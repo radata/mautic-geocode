@@ -85,13 +85,25 @@ class NominatimProvider implements ProviderInterface
     }
 
     public function buildQuery(
+        string $zipcode,
+        string $houseNumber,
+        string $houseNumberAddition,
         string $address1,
         string $city,
-        string $zipcode,
         string $country,
     ): string {
+        // If we have house_number but address1 doesn't include it, prepend it
+        $street = $address1;
+        if ('' !== $houseNumber && '' !== $address1 && !str_contains($address1, $houseNumber)) {
+            $num = $houseNumber;
+            if ('' !== $houseNumberAddition) {
+                $num .= $houseNumberAddition;
+            }
+            $street = $address1.' '.$num;
+        }
+
         $parts = array_filter([
-            $address1,
+            $street,
             $city,
             $zipcode,
             $country,

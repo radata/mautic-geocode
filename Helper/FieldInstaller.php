@@ -12,6 +12,22 @@ class FieldInstaller
 {
     private const FIELDS = [
         [
+            'alias'   => 'house_number',
+            'label'   => 'House Number',
+            'type'    => 'text',
+            'group'   => 'core',
+            'object'  => 'lead',
+            'properties' => [],
+        ],
+        [
+            'alias'   => 'house_number_addition',
+            'label'   => 'House Number Addition',
+            'type'    => 'text',
+            'group'   => 'core',
+            'object'  => 'lead',
+            'properties' => [],
+        ],
+        [
             'alias'   => 'latitude',
             'label'   => 'Latitude',
             'type'    => 'number',

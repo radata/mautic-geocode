@@ -59,17 +59,19 @@ class GeocoderService
      */
     public function geocodeContact(Lead $lead, bool $batchMode = false): ?array
     {
-        $address1 = trim((string) $lead->getFieldValue('address1'));
-        $city     = trim((string) $lead->getFieldValue('city'));
-        $zipcode  = trim((string) $lead->getFieldValue('zipcode'));
-        $country  = trim((string) $lead->getFieldValue('country'));
+        $address1             = trim((string) $lead->getFieldValue('address1'));
+        $city                 = trim((string) $lead->getFieldValue('city'));
+        $zipcode              = trim((string) $lead->getFieldValue('zipcode'));
+        $country              = trim((string) $lead->getFieldValue('country'));
+        $houseNumber          = trim((string) $lead->getFieldValue('house_number'));
+        $houseNumberAddition  = trim((string) $lead->getFieldValue('house_number_addition'));
 
         // Need at least one address component to geocode
         if ('' === $address1 && '' === $city && '' === $zipcode) {
             return null;
         }
 
-        return $this->geocodeAddress($address1, $city, $zipcode, $country, $batchMode);
+        return $this->geocodeAddress($zipcode, $houseNumber, $houseNumberAddition, $address1, $city, $country, $batchMode);
     }
 
     /**
@@ -78,9 +80,11 @@ class GeocoderService
      * @return array{lat: float, lng: float}|null
      */
     public function geocodeAddress(
+        string $zipcode,
+        string $houseNumber,
+        string $houseNumberAddition,
         string $address1,
         string $city,
-        string $zipcode,
         string $country,
         bool $batchMode = false,
     ): ?array {
@@ -88,7 +92,7 @@ class GeocoderService
         $isDutch  = $this->isDutchAddress($country);
         $provider = $this->selectProvider($isDutch);
 
-        $query = $provider->buildQuery($address1, $city, $zipcode, $country);
+        $query = $provider->buildQuery($zipcode, $houseNumber, $houseNumberAddition, $address1, $city, $country);
 
         if ('' === trim($query)) {
             return null;
@@ -111,7 +115,7 @@ class GeocoderService
             $fallback = $this->getFallbackProvider($isDutch);
 
             if (null !== $fallback) {
-                $fallbackQuery = $fallback->buildQuery($address1, $city, $zipcode, $country);
+                $fallbackQuery = $fallback->buildQuery($zipcode, $houseNumber, $houseNumberAddition, $address1, $city, $country);
 
                 if ($batchMode) {
                     $this->enforceRateLimit();
