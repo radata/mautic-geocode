@@ -206,6 +206,49 @@ docker exec --user www-data --workdir /var/www/html mautic_web php bin/console m
 
 Note: The `latitude` and `longitude` custom fields will remain after uninstall. Remove them manually via **Settings > Custom Fields** if desired.
 
+## Troubleshooting
+
+### Log Files
+
+Mautic logs are date-stamped PHP files:
+
+```
+/var/www/html/var/logs/mautic_prod-YYYY-MM-DD.php
+```
+
+Check for geocoder entries:
+
+```bash
+docker exec mautic_web grep -i geocod /var/www/html/var/logs/mautic_prod-$(date +%Y-%m-%d).php
+```
+
+### Plugin enabled but not geocoding
+
+1. **Save feature settings**: Go to Settings > Plugins > Geocoder > **Features** tab and click **Save** (even without changes). Publishing the plugin alone does not persist default feature settings.
+
+2. **Clear cache** after any plugin file changes:
+   ```bash
+   docker exec --user www-data mautic_web rm -rf /var/www/html/var/cache/prod
+   docker exec --user www-data --workdir /var/www/html mautic_web php bin/console cache:warmup --env=prod
+   ```
+
+3. **Verify subscriber is registered**:
+   ```bash
+   docker exec --user www-data --workdir /var/www/html mautic_web \
+     php bin/console debug:event-dispatcher mautic.lead_post_save 2>/dev/null | grep -i geocod
+   ```
+
+4. **Test PDOK API directly**:
+   ```bash
+   curl -s "https://api.pdok.nl/bzk/locatieserver/search/v3_1/free?q=2031ET+8D+Haarlem&rows=1&fq=type:adres"
+   ```
+
+5. **Run batch command** to test the full pipeline:
+   ```bash
+   docker exec --user www-data --workdir /var/www/html mautic_web \
+     php bin/console mautic:contacts:geocode --dry-run --limit=5
+   ```
+
 ## License
 
 MIT - see [LICENSE](LICENSE) for details.
