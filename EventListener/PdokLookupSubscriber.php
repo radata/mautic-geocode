@@ -82,8 +82,7 @@ class PdokLookupSubscriber implements EventSubscriberInterface
         return <<<'HTML'
 <!-- PDOK Address Lookup Card — MauticGeocoderBundle -->
 <style>
-#pdok-lookup-card{margin-bottom:15px}
-.pdok-card{background:#f5f7fa;border:1px solid #e1e5eb;border-radius:4px;padding:12px 15px}
+.pdok-card{background:#f5f7fa;border:1px solid #e1e5eb;border-radius:4px;padding:12px 15px;margin-bottom:15px}
 .pdok-label{display:block;margin-bottom:8px;font-weight:600;font-size:13px;color:#555}
 .pdok-inputs{display:flex;gap:6px;align-items:center}
 .pdok-inputs .form-control{flex:none;height:34px}
@@ -96,10 +95,20 @@ class PdokLookupSubscriber implements EventSubscriberInterface
 .pdok-error{background:#f2dede;border:1px solid #ebccd1;color:#a94442;border-radius:3px;padding:8px 12px;margin-top:10px;font-size:13px}
 .pdok-retry{margin-top:6px;font-size:12px;cursor:pointer;color:#4e5d9d;background:none;border:none;padding:0;text-decoration:underline}
 .pdok-retry:hover{color:#3d4a80}
+#pdok-detail-toggle{margin-top:15px;border:1px solid #e1e5eb;border-radius:4px;background:#fafbfc}
+#pdok-detail-toggle summary{padding:8px 12px;cursor:pointer;font-size:13px;font-weight:600;color:#777;list-style:none;display:flex;align-items:center;gap:6px}
+#pdok-detail-toggle summary::-webkit-details-marker{display:none}
+#pdok-detail-toggle summary .fa{transition:transform .2s;font-size:11px}
+#pdok-detail-toggle[open] summary .fa{transform:rotate(90deg)}
+#pdok-detail-toggle .pdok-detail-body{padding:0 12px 12px}
 </style>
 <script>
 (function(){
     'use strict';
+
+    // Fields to collapse (aliases)
+    var DETAIL_FIELDS=['straatnaam','gemeente_code','gemeente_naam','provincie_code',
+                       'house_number','house_number_addition','latitude','longitude'];
 
     function init(){
         var form=document.querySelector('form[name="lead"]');
@@ -110,16 +119,15 @@ class PdokLookupSubscriber implements EventSubscriberInterface
         var addr1=form.querySelector('#lead_address1,[id$="_address1"],[name="lead[address1]"]');
         if(!addr1)return;
 
-        // Walk up to the row/container that groups address fields
-        var container=addr1.closest('.row')||addr1.closest('.form-group')||addr1.parentElement;
-        if(!container)return;
+        // Walk up to the form-group containing address1
+        var addrGroup=addr1.closest('.form-group')||addr1.parentElement;
+        if(!addrGroup)return;
 
-        // Build lookup card
+        // Build lookup card — insert as sibling, inherits same container width
         var card=document.createElement('div');
         card.id='pdok-lookup-card';
-        card.className='row';
         card.innerHTML=
-            '<div class="col-md-12"><div class="pdok-card">'+
+            '<div class="pdok-card">'+
             '<label class="pdok-label"><i class="fa fa-map-marker"></i> Adres opzoeken (PDOK)</label>'+
             '<div class="pdok-inputs">'+
             '<input type="text" id="pdok-zip" class="form-control" placeholder="1234AB" maxlength="7" />'+
@@ -128,9 +136,12 @@ class PdokLookupSubscriber implements EventSubscriberInterface
             '<button type="button" id="pdok-btn" class="btn btn-default" title="Zoek adres"><i class="fa fa-search"></i></button>'+
             '</div>'+
             '<div id="pdok-result"></div>'+
-            '</div></div>';
+            '</div>';
 
-        container.parentNode.insertBefore(card,container);
+        addrGroup.parentNode.insertBefore(card,addrGroup);
+
+        // Wrap detail fields in a collapsible section
+        wrapDetailFields(form);
 
         var btn=document.getElementById('pdok-btn');
         var zipIn=document.getElementById('pdok-zip');
@@ -293,6 +304,42 @@ class PdokLookupSubscriber implements EventSubscriberInterface
         function showMsg(type,msg){
             resultDiv.innerHTML='<div class="pdok-'+type+'">'+msg+'</div>';
         }
+    }
+
+    /**
+     * Find detail field form-groups and wrap them in a collapsible <details>.
+     */
+    function wrapDetailFields(form){
+        var groups=[];
+        DETAIL_FIELDS.forEach(function(alias){
+            var field=form.querySelector(
+                '#lead_'+alias+',#lead_field_'+alias+',[name="lead['+alias+']"]'
+            );
+            if(!field)return;
+            var fg=field.closest('.form-group');
+            if(fg && groups.indexOf(fg)===-1) groups.push(fg);
+        });
+
+        if(!groups.length)return;
+
+        // Find common parent
+        var parent=groups[0].parentNode;
+
+        var details=document.createElement('details');
+        details.id='pdok-detail-toggle';
+        details.innerHTML='<summary><i class="fa fa-caret-right"></i> Geocode details ('+groups.length+' velden)</summary>';
+
+        var body=document.createElement('div');
+        body.className='pdok-detail-body';
+
+        // Insert details element before the first detail field group
+        parent.insertBefore(details,groups[0]);
+        details.appendChild(body);
+
+        // Move all detail field groups into the collapsible body
+        groups.forEach(function(fg){
+            body.appendChild(fg);
+        });
     }
 
     // Run when DOM is ready
