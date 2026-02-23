@@ -4,9 +4,10 @@ Mautic 7.x plugin that automatically geocodes contact addresses into latitude/lo
 
 ## Features
 
-- Adds `latitude` and `longitude` custom fields to contacts on install
+- Adds custom fields to contacts on install: coordinates, address details, municipality/province codes
 - Automatic geocoding when contacts are created or updated
 - PDOK Locatieserver for Dutch addresses (free, no API key, official BAG data)
+- Fills address fields from PDOK response: street, city, state, house number, municipality, province
 - Nominatim/OSM as fallback for non-Dutch addresses
 - Mautic REST API automatically accepts lat/lng on contact create/update
 - CLI batch command for geocoding existing contacts
@@ -74,7 +75,7 @@ docker exec --user www-data --workdir /var/www/html mautic_web php bin/console m
 1. Go to **Settings > Plugins > Geocoder - Address to Lat/Lng**
 2. Set **Published** to **Yes**
 3. Configure features (see Configuration below)
-4. The `latitude` and `longitude` fields are created automatically on install
+4. Custom fields are created automatically on install (see Custom Fields below)
 
 ## Configuration
 
@@ -90,14 +91,39 @@ In the plugin settings (Features tab):
 | **Overwrite existing coordinates** | Re-geocode when address changes | Disabled |
 | **Dutch country values** | Country values routed to PDOK | `Netherlands,Nederland,NL,` |
 
+## Custom Fields
+
+The plugin creates and manages the following custom fields on contacts:
+
+| Field | Alias | Type | Visible | Source |
+|---|---|---|---|---|
+| House Number | `house_number` | text | Yes | Input / PDOK `huisnummer` |
+| House Number Addition | `house_number_addition` | text | Yes | Input / PDOK `huisletter` |
+| Street Name | `straatnaam` | text | No | PDOK `straatnaam` |
+| Municipality Code | `gemeente_code` | text | No | PDOK `gemeentecode` |
+| Municipality Name | `gemeente_naam` | text | No | PDOK `gemeentenaam` |
+| Province Code | `provincie_code` | text | No | PDOK `provinciecode` |
+| Latitude | `latitude` | number | No | Geocoded |
+| Longitude | `longitude` | number | No | Geocoded |
+
+Additionally, the plugin fills these **core Mautic fields** from PDOK results:
+
+| Core Field | PDOK Source |
+|---|---|
+| `address1` | `straatnaam` + `huisnummer` + `huisletter` (e.g. "Tappersweg 8D") |
+| `city` | `woonplaatsnaam` |
+| `state` | `provincienaam` (e.g. "Noord-Holland") |
+
+Hidden fields can be made visible via **Settings > Custom Fields** in Mautic.
+
 ## Usage
 
 ### Automatic Geocoding
 
-When enabled, the plugin listens to contact save events. If a contact has address fields (`address1`, `city`, `zipcode`, `country`) and no coordinates, it geocodes automatically.
+When enabled, the plugin listens to contact save events. If a contact has address fields (`address1`, `city`, `zipcode`, `country`) and no coordinates, it geocodes automatically. For Dutch addresses, it also fills all address detail fields from the PDOK response.
 
 - Dutch addresses (country = Netherlands/Nederland/NL/empty) use PDOK
-- Other addresses fall back to Nominatim
+- Other addresses fall back to Nominatim (coordinates only, no address details)
 
 ### API Upload with Coordinates
 
@@ -165,7 +191,7 @@ plugins/MauticGeocoderBundle/
 │   ├── PdokProvider.php                  # PDOK Locatieserver API
 │   └── NominatimProvider.php             # Nominatim/OSM API
 ├── Helper/
-│   └── FieldInstaller.php                # Creates latitude/longitude fields
+│   └── FieldInstaller.php                # Creates custom fields (coords, address details)
 ├── Command/
 │   └── GeocodeContactsCommand.php        # CLI batch geocoding
 ├── Translations/en_US/messages.ini
@@ -182,6 +208,7 @@ plugins/MauticGeocoderBundle/
 - **Accuracy**: Excellent for Dutch postal codes and addresses
 - **Query format**: `{zipcode} {housenumber} {city}`
 - **API**: `https://api.pdok.nl/bzk/locatieserver/search/v3_1/free`
+- **Returns**: Coordinates + full address details (street, municipality, province codes, etc.)
 
 ### Nominatim / OpenStreetMap (Fallback)
 
@@ -204,7 +231,7 @@ docker exec --user www-data --workdir /var/www/html mautic_web php bin/console c
 docker exec --user www-data --workdir /var/www/html mautic_web php bin/console mautic:plugins:reload
 ```
 
-Note: The `latitude` and `longitude` custom fields will remain after uninstall. Remove them manually via **Settings > Custom Fields** if desired.
+Note: Custom fields (`latitude`, `longitude`, `straatnaam`, `gemeente_code`, `gemeente_naam`, `provincie_code`, `house_number`, `house_number_addition`) will remain after uninstall. Remove them manually via **Settings > Custom Fields** if desired.
 
 ## Troubleshooting
 
