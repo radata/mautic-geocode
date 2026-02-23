@@ -59,8 +59,19 @@ Update to the latest version:
 
 ```bash
 docker exec --user www-data --workdir /var/www/html mautic_web \
-  composer update hollandworx/mautic-geocoder \
-  -W --no-interaction --ignore-platform-req=ext-gd
+  composer clear-cache && \
+docker exec --user www-data --workdir /var/www/html mautic_web \
+  composer update hollandworx/mautic-geocoder -W --no-interaction --ignore-platform-req=ext-gd
+docker exec --user www-data mautic_web rm -rf /var/www/html/var/cache/prod
+docker exec --user www-data --workdir /var/www/html mautic_web php bin/console cache:warmup --env=prod
+docker exec --user www-data --workdir /var/www/html mautic_web php bin/console mautic:plugins:reload
+```
+
+Fix browserslist deprecation warning (optional, run once after install):
+
+```bash
+docker exec --user www-data --workdir /var/www/html mautic_web \
+  npx update-browserslist-db@latest
 ```
 
 ### Versioning & Field Creation

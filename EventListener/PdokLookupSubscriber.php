@@ -48,13 +48,13 @@ class PdokLookupSubscriber implements EventSubscriberInterface
             return;
         }
 
-        // Check plugin is published
+        // Check plugin is published (getIntegrationObject returns false when not found)
         try {
             $integration = $this->integrationHelper->getIntegrationObject('Geocoder');
-            if (null === $integration || !$integration->getIntegrationSettings()->getIsPublished()) {
+            if (!$integration || !$integration->getIntegrationSettings()->getIsPublished()) {
                 return;
             }
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->logger->debug('Geocoder: could not check integration status: '.$e->getMessage());
 
             return;
