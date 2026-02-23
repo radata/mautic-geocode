@@ -1,0 +1,23 @@
+{
+    "name": "hollandworx/mautic-geocoder",
+    "description": "Automatic geocoding of contact addresses to latitude/longitude coordinates using PDOK and Nominatim",
+    "type": "mautic-plugin",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Hollandworx"
+        }
+    ],
+    "require": {
+        "php": ">=8.1",
+        "mautic/core-lib": "^7.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "MauticPlugin\\MauticGeocoderBundle\\": ""
+        }
+    },
+    "extra": {
+        "install-directory-name": "MauticGeocoderBundle"
+    }
+}
