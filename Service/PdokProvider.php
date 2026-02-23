@@ -74,7 +74,19 @@ class PdokProvider implements ProviderInterface
                     'lng'   => $lng,
                 ]);
 
-                return ['lat' => $lat, 'lng' => $lng];
+                return [
+                    'lat'             => $lat,
+                    'lng'             => $lng,
+                    'straatnaam'      => $doc['straatnaam'] ?? '',
+                    'huisnummer'      => (string) ($doc['huisnummer'] ?? ''),
+                    'huisletter'      => $doc['huisletter'] ?? '',
+                    'postcode'        => $doc['postcode'] ?? '',
+                    'woonplaatsnaam'  => $doc['woonplaatsnaam'] ?? '',
+                    'gemeente_code'   => $doc['gemeentecode'] ?? '',
+                    'gemeente_naam'   => $doc['gemeentenaam'] ?? '',
+                    'provincie_code'  => $doc['provinciecode'] ?? '',
+                    'provincie_naam'  => $doc['provincienaam'] ?? '',
+                ];
             }
 
             $this->logger->warning('Geocoder PDOK: could not parse centroide_ll "{wkt}".', [

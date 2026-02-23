@@ -53,9 +53,9 @@ class GeocoderService
     }
 
     /**
-     * Geocode a contact's address into coordinates.
+     * Geocode a contact's address into coordinates and address details.
      *
-     * @return array{lat: float, lng: float}|null
+     * @return array{lat: float, lng: float, straatnaam?: string, huisnummer?: string, huisletter?: string, postcode?: string, woonplaatsnaam?: string, gemeente_code?: string, gemeente_naam?: string, provincie_code?: string, provincie_naam?: string}|null
      */
     public function geocodeContact(Lead $lead, bool $batchMode = false): ?array
     {
@@ -75,9 +75,9 @@ class GeocoderService
     }
 
     /**
-     * Geocode raw address components into coordinates.
+     * Geocode raw address components into coordinates and address details.
      *
-     * @return array{lat: float, lng: float}|null
+     * @return array{lat: float, lng: float, straatnaam?: string, huisnummer?: string, huisletter?: string, postcode?: string, woonplaatsnaam?: string, gemeente_code?: string, gemeente_naam?: string, provincie_code?: string, provincie_naam?: string}|null
      */
     public function geocodeAddress(
         string $zipcode,

@@ -23,6 +23,17 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 )]
 class GeocodeContactsCommand extends Command
 {
+    private const ADDRESS_FIELD_MAP = [
+        'straatnaam'      => 'straatnaam',
+        'huisnummer'      => 'house_number',
+        'huisletter'      => 'house_number_addition',
+        'gemeente_code'   => 'gemeente_code',
+        'gemeente_naam'   => 'gemeente_naam',
+        'provincie_code'  => 'provincie_code',
+        'provincie_naam'  => 'state',
+        'woonplaatsnaam'  => 'city',
+    ];
+
     public function __construct(
         private GeocoderService $geocoderService,
         private FieldInstaller $fieldInstaller,
@@ -139,6 +150,10 @@ class GeocodeContactsCommand extends Command
                 if (null !== $coords) {
                     $lead->addUpdatedField('latitude', (string) $coords['lat']);
                     $lead->addUpdatedField('longitude', (string) $coords['lng']);
+
+                    // Save PDOK address details
+                    $this->applyAddressDetails($lead, $coords);
+
                     $this->leadModel->saveEntity($lead);
                     ++$geocoded;
                 } else {
@@ -169,5 +184,34 @@ class GeocodeContactsCommand extends Command
         $io->success('Geocoding complete.');
 
         return Command::SUCCESS;
+    }
+
+    /**
+     * @param array<string, mixed> $result
+     */
+    private function applyAddressDetails(\Mautic\LeadBundle\Entity\Lead $lead, array $result): void
+    {
+        foreach (self::ADDRESS_FIELD_MAP as $resultKey => $fieldAlias) {
+            $value = trim((string) ($result[$resultKey] ?? ''));
+
+            if ('' === $value) {
+                continue;
+            }
+
+            $lead->addUpdatedField($fieldAlias, $value);
+        }
+
+        // Build address1 from straatnaam + huisnummer + huisletter
+        $straat = trim((string) ($result['straatnaam'] ?? ''));
+        $nummer = trim((string) ($result['huisnummer'] ?? ''));
+        $letter = trim((string) ($result['huisletter'] ?? ''));
+
+        if ('' !== $straat && '' !== $nummer) {
+            $address1 = $straat.' '.$nummer;
+            if ('' !== $letter) {
+                $address1 .= $letter;
+            }
+            $lead->addUpdatedField('address1', $address1);
+        }
     }
 }

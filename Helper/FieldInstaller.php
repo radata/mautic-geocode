@@ -17,6 +17,7 @@ class FieldInstaller
             'type'    => 'text',
             'group'   => 'core',
             'object'  => 'lead',
+            'visible' => true,
             'properties' => [],
         ],
         [
@@ -25,6 +26,43 @@ class FieldInstaller
             'type'    => 'text',
             'group'   => 'core',
             'object'  => 'lead',
+            'visible' => true,
+            'properties' => [],
+        ],
+        [
+            'alias'   => 'straatnaam',
+            'label'   => 'Street Name',
+            'type'    => 'text',
+            'group'   => 'core',
+            'object'  => 'lead',
+            'visible' => false,
+            'properties' => [],
+        ],
+        [
+            'alias'   => 'gemeente_code',
+            'label'   => 'Municipality Code',
+            'type'    => 'text',
+            'group'   => 'core',
+            'object'  => 'lead',
+            'visible' => false,
+            'properties' => [],
+        ],
+        [
+            'alias'   => 'gemeente_naam',
+            'label'   => 'Municipality Name',
+            'type'    => 'text',
+            'group'   => 'core',
+            'object'  => 'lead',
+            'visible' => false,
+            'properties' => [],
+        ],
+        [
+            'alias'   => 'provincie_code',
+            'label'   => 'Province Code',
+            'type'    => 'text',
+            'group'   => 'core',
+            'object'  => 'lead',
+            'visible' => false,
             'properties' => [],
         ],
         [
@@ -33,6 +71,7 @@ class FieldInstaller
             'type'    => 'number',
             'group'   => 'core',
             'object'  => 'lead',
+            'visible' => false,
             'properties' => ['roundmode' => 4, 'scale' => 8],
         ],
         [
@@ -41,6 +80,7 @@ class FieldInstaller
             'type'    => 'number',
             'group'   => 'core',
             'object'  => 'lead',
+            'visible' => false,
             'properties' => ['roundmode' => 4, 'scale' => 8],
         ],
     ];
@@ -72,7 +112,7 @@ class FieldInstaller
                 $field->setObject($config['object']);
                 $field->setIsPublished(true);
                 $field->setIsListable(true);
-                $field->setIsVisible(true);
+                $field->setIsVisible($config['visible'] ?? true);
                 $field->setProperties($config['properties']);
 
                 $this->fieldModel->saveEntity($field);

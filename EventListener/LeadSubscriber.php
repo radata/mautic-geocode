@@ -37,6 +37,20 @@ class LeadSubscriber implements EventSubscriberInterface
         ];
     }
 
+    /**
+     * Map of PDOK result keys → Mautic field aliases.
+     */
+    private const ADDRESS_FIELD_MAP = [
+        'straatnaam'      => 'straatnaam',
+        'huisnummer'      => 'house_number',
+        'huisletter'      => 'house_number_addition',
+        'gemeente_code'   => 'gemeente_code',
+        'gemeente_naam'   => 'gemeente_naam',
+        'provincie_code'  => 'provincie_code',
+        'provincie_naam'  => 'state',
+        'woonplaatsnaam'  => 'city',
+    ];
+
     public function onLeadPostSave(LeadEvent $event): void
     {
         // Re-entry guard: we're already inside a geocode save
@@ -91,11 +105,15 @@ class LeadSubscriber implements EventSubscriberInterface
                 return;
             }
 
-            // Save coordinates with re-entry guard
+            // Save coordinates and address details with re-entry guard
             $this->geocoding = true;
             try {
                 $lead->addUpdatedField('latitude', (string) $coords['lat']);
                 $lead->addUpdatedField('longitude', (string) $coords['lng']);
+
+                // Save PDOK address details when available
+                $this->applyAddressDetails($lead, $coords);
+
                 $this->leadModel->saveEntity($lead);
 
                 $this->logger->info('Geocoder: contact #{id} → {lat}, {lng}', [
@@ -112,6 +130,37 @@ class LeadSubscriber implements EventSubscriberInterface
                 'id'      => $event->getLead()->getId(),
                 'message' => $e->getMessage(),
             ]);
+        }
+    }
+
+    /**
+     * Apply PDOK address detail fields to the contact.
+     *
+     * @param array<string, mixed> $result
+     */
+    private function applyAddressDetails(\Mautic\LeadBundle\Entity\Lead $lead, array $result): void
+    {
+        foreach (self::ADDRESS_FIELD_MAP as $resultKey => $fieldAlias) {
+            $value = trim((string) ($result[$resultKey] ?? ''));
+
+            if ('' === $value) {
+                continue;
+            }
+
+            $lead->addUpdatedField($fieldAlias, $value);
+        }
+
+        // Build address1 from straatnaam + huisnummer + huisletter
+        $straat = trim((string) ($result['straatnaam'] ?? ''));
+        $nummer = trim((string) ($result['huisnummer'] ?? ''));
+        $letter = trim((string) ($result['huisletter'] ?? ''));
+
+        if ('' !== $straat && '' !== $nummer) {
+            $address1 = $straat.' '.$nummer;
+            if ('' !== $letter) {
+                $address1 .= $letter;
+            }
+            $lead->addUpdatedField('address1', $address1);
         }
     }
 }
