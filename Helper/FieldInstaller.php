@@ -131,7 +131,12 @@ class FieldInstaller
 
     public function fieldsExist(): bool
     {
-        return null !== $this->fieldModel->getEntityByAlias('latitude')
-            && null !== $this->fieldModel->getEntityByAlias('longitude');
+        foreach (self::FIELDS as $config) {
+            if (null === $this->fieldModel->getEntityByAlias($config['alias'])) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
