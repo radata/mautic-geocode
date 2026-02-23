@@ -93,12 +93,12 @@ class PdokLookupSubscriber implements EventSubscriberInterface
 .pdok-error{background:#f2dede;border:1px solid #ebccd1;color:#a94442;border-radius:3px;padding:8px 10px;margin-top:8px;font-size:13px}
 .pdok-retry{margin-top:4px;font-size:12px;cursor:pointer;color:#4e5d9d;background:none;border:none;padding:0;text-decoration:underline}
 .pdok-retry:hover{color:#3d4a80}
-#pdok-detail-toggle{margin-top:0;border:1px solid #e1e5eb;border-radius:4px;background:#fafbfc}
-#pdok-detail-toggle summary{padding:8px 12px;cursor:pointer;font-size:13px;font-weight:600;color:#777;list-style:none;display:flex;align-items:center;gap:6px}
-#pdok-detail-toggle summary::-webkit-details-marker{display:none}
-#pdok-detail-toggle summary svg{transition:transform .2s}
-#pdok-detail-toggle[open] summary svg{transform:rotate(90deg)}
-#pdok-detail-toggle .pdok-detail-body{padding:0 12px 12px}
+.pdok-detail-toggle{margin-top:0;border:1px solid #e1e5eb;border-radius:4px;background:#fafbfc}
+.pdok-detail-toggle summary{padding:8px 12px;cursor:pointer;font-size:13px;font-weight:600;color:#777;list-style:none;display:flex;align-items:center;gap:6px}
+.pdok-detail-toggle summary::-webkit-details-marker{display:none}
+.pdok-detail-toggle summary svg{transition:transform .2s}
+.pdok-detail-toggle[open] summary svg{transform:rotate(90deg)}
+.pdok-detail-toggle .pdok-detail-body{padding:0 12px 12px}
 @keyframes pdok-spin{to{transform:rotate(360deg)}}
 .pdok-spinner{animation:pdok-spin 1s linear infinite;display:inline-block}
 </style>
@@ -112,10 +112,6 @@ class PdokLookupSubscriber implements EventSubscriberInterface
     var ICO_CHECK='<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>';
     var ICO_CARET='<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
     var ICO_PIN='<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-1px"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>';
-
-    // Contact custom fields to collapse
-    var DETAIL_FIELDS=['straatnaam','gemeente_code','gemeente_naam','provincie_code',
-                       'house_number','house_number_addition','latitude','longitude'];
 
     // Form configs: contact vs company
     var FORMS=[
@@ -136,7 +132,9 @@ class PdokLookupSubscriber implements EventSubscriberInterface
             },
             prefillZip:'zipcode',
             prefillNum:'house_number',
-            prefillAdd:'house_number_addition'
+            prefillAdd:'house_number_addition',
+            detailFields:['straatnaam','gemeente_code','gemeente_naam','provincie_code',
+                          'house_number','house_number_addition','latitude','longitude']
         },
         {
             formName:'company',
@@ -145,11 +143,21 @@ class PdokLookupSubscriber implements EventSubscriberInterface
             fieldMap:{
                 address1:'companyaddress1', city:'companycity',
                 state:'companystate', zipcode:'companyzipcode',
-                country:'companycountry'
+                country:'companycountry',
+                latitude:'companylatitude', longitude:'companylongitude',
+                house_number:'companyhouse_number',
+                house_number_addition:'companyhouse_number_addition',
+                straatnaam:'companystraatnaam',
+                gemeente_code:'companygemeente_code',
+                gemeente_naam:'companygemeente_naam',
+                provincie_code:'companyprovincie_code'
             },
             prefillZip:'companyzipcode',
-            prefillNum:null,
-            prefillAdd:null
+            prefillNum:'companyhouse_number',
+            prefillAdd:'companyhouse_number_addition',
+            detailFields:['companystraatnaam','companygemeente_code','companygemeente_naam',
+                          'companyprovincie_code','companyhouse_number','companyhouse_number_addition',
+                          'companylatitude','companylongitude']
         }
     ];
 
@@ -191,8 +199,8 @@ class PdokLookupSubscriber implements EventSubscriberInterface
 
         addrGroup.parentNode.insertBefore(card,addrGroup);
 
-        // Wrap detail fields for contacts only
-        if(cfg.type==='contact') wrapDetailFields(form,cfg);
+        // Wrap detail fields in collapsible section
+        if(cfg.detailFields&&cfg.detailFields.length) wrapDetailFields(form,cfg);
 
         var btn=document.getElementById('pdok-btn');
         var zipIn=document.getElementById('pdok-zip');
@@ -365,7 +373,7 @@ class PdokLookupSubscriber implements EventSubscriberInterface
 
     function wrapDetailFields(form,cfg){
         var groups=[];
-        DETAIL_FIELDS.forEach(function(alias){
+        cfg.detailFields.forEach(function(alias){
             var field=findField(form,cfg,alias);
             if(!field)return;
             var fg=field.closest('.form-group');
@@ -377,7 +385,8 @@ class PdokLookupSubscriber implements EventSubscriberInterface
         var parent=groups[0].parentNode;
 
         var details=document.createElement('details');
-        details.id='pdok-detail-toggle';
+        details.id='pdok-detail-toggle-'+cfg.type;
+        details.className='pdok-detail-toggle';
         details.innerHTML='<summary>'+ICO_CARET+' Geocode details ('+groups.length+' velden)</summary>';
 
         var body=document.createElement('div');

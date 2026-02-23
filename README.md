@@ -65,6 +65,9 @@ docker exec --user www-data --workdir /var/www/html mautic_web \
 docker exec --user www-data mautic_web rm -rf /var/www/html/var/cache/prod
 docker exec --user www-data --workdir /var/www/html mautic_web php bin/console cache:warmup --env=prod
 docker exec --user www-data --workdir /var/www/html mautic_web php bin/console mautic:plugins:reload
+
+docker exec --user www-data --workdir /var/www/html mautic_web   php bin/console mautic:contacts:geocode --dry-run --limit=1
+
 ```
 
 Fix browserslist deprecation warning (optional, run once after install):
@@ -114,7 +117,7 @@ In the plugin settings (Features tab):
 
 ## Custom Fields
 
-The plugin creates and manages the following custom fields on contacts:
+### Contact Fields
 
 | Field | Alias | Type | Visible | Source |
 |---|---|---|---|---|
@@ -127,26 +130,39 @@ The plugin creates and manages the following custom fields on contacts:
 | Latitude | `latitude` | number | No | Geocoded |
 | Longitude | `longitude` | number | No | Geocoded |
 
+### Company Fields
+
+| Field | Alias | Type | Visible | Source |
+|---|---|---|---|---|
+| Company House Number | `companyhouse_number` | text | Yes | Input / PDOK `huisnummer` |
+| Company House Number Addition | `companyhouse_number_addition` | text | Yes | Input / PDOK `huisletter` |
+| Company Street Name | `companystraatnaam` | text | No | PDOK `straatnaam` |
+| Company Municipality Code | `companygemeente_code` | text | No | PDOK `gemeentecode` |
+| Company Municipality Name | `companygemeente_naam` | text | No | PDOK `gemeentenaam` |
+| Company Province Code | `companyprovincie_code` | text | No | PDOK `provinciecode` |
+| Company Latitude | `companylatitude` | number | No | Geocoded |
+| Company Longitude | `companylongitude` | number | No | Geocoded |
+
 Additionally, the plugin fills these **core Mautic fields** from PDOK results:
 
-| Core Field | PDOK Source |
-|---|---|
-| `address1` | `straatnaam` + `huisnummer` + `huisletter` (e.g. "Tappersweg 8D") |
-| `city` | `woonplaatsnaam` |
-| `state` | `provincienaam` (e.g. "Noord-Holland") |
+| Contact Field | Company Field | PDOK Source |
+|---|---|---|
+| `address1` | `companyaddress1` | `straatnaam` + `huisnummer` + `huisletter` (e.g. "Tappersweg 8D") |
+| `city` | `companycity` | `woonplaatsnaam` |
+| `state` | `companystate` | `provincienaam` (e.g. "Noord-Holland") |
 
 Hidden fields can be made visible via **Settings > Custom Fields** in Mautic.
 
 ## Usage
 
-### PDOK Lookup Card (Contact Form)
+### PDOK Lookup Card (Contact & Company Forms)
 
-When editing or creating a contact, a **PDOK address lookup card** appears above the address fields. Enter a postal code, house number, and optional addition, then click the search button (or press Enter).
+When editing or creating a contact or company, a **PDOK address lookup card** appears above the address fields. Enter a postal code, house number, and optional addition, then click the search button (or press Enter).
 
 The card queries the PDOK Locatieserver and fills **all** address and coordinate fields in one shot:
-- Core fields: `address1`, `city`, `state`, `zipcode`, `country`
-- Coordinates: `latitude`, `longitude`
-- Detail fields: `house_number`, `house_number_addition`, `straatnaam`, `gemeente_code`, `gemeente_naam`, `provincie_code`
+- Core fields: `address1`/`companyaddress1`, `city`/`companycity`, `state`/`companystate`, `zipcode`/`companyzipcode`, `country`/`companycountry`
+- Coordinates: `latitude`/`companylatitude`, `longitude`/`companylongitude`
+- Detail fields: `house_number`, `straatnaam`, `gemeente_code`, `gemeente_naam`, `provincie_code` (and company equivalents)
 
 A green confirmation card shows the resolved address with municipality and province. Click "Opnieuw zoeken" to search again.
 
@@ -266,7 +282,7 @@ docker exec --user www-data --workdir /var/www/html mautic_web php bin/console c
 docker exec --user www-data --workdir /var/www/html mautic_web php bin/console mautic:plugins:reload
 ```
 
-Note: Custom fields (`latitude`, `longitude`, `straatnaam`, `gemeente_code`, `gemeente_naam`, `provincie_code`, `house_number`, `house_number_addition`) will remain after uninstall. Remove them manually via **Settings > Custom Fields** if desired.
+Note: Custom fields (contact: `latitude`, `longitude`, `straatnaam`, `gemeente_code`, `gemeente_naam`, `provincie_code`, `house_number`, `house_number_addition`; company: `companylatitude`, `companylongitude`, `companystraatnaam`, `companygemeente_code`, `companygemeente_naam`, `companyprovincie_code`, `companyhouse_number`, `companyhouse_number_addition`) will remain after uninstall. Remove them manually via **Settings > Custom Fields** if desired.
 
 ## Troubleshooting
 

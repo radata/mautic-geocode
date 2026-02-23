@@ -10,7 +10,8 @@ use Psr\Log\LoggerInterface;
 
 class FieldInstaller
 {
-    private const FIELDS = [
+    // Contact custom fields
+    private const LEAD_FIELDS = [
         [
             'alias'   => 'house_number',
             'label'   => 'House Number',
@@ -85,15 +86,96 @@ class FieldInstaller
         ],
     ];
 
+    // Company custom fields (aliases follow Mautic's company* prefix convention)
+    private const COMPANY_FIELDS = [
+        [
+            'alias'   => 'companyhouse_number',
+            'label'   => 'Company House Number',
+            'type'    => 'text',
+            'group'   => 'core',
+            'object'  => 'company',
+            'visible' => true,
+            'properties' => [],
+        ],
+        [
+            'alias'   => 'companyhouse_number_addition',
+            'label'   => 'Company House Number Addition',
+            'type'    => 'text',
+            'group'   => 'core',
+            'object'  => 'company',
+            'visible' => true,
+            'properties' => [],
+        ],
+        [
+            'alias'   => 'companystraatnaam',
+            'label'   => 'Company Street Name',
+            'type'    => 'text',
+            'group'   => 'core',
+            'object'  => 'company',
+            'visible' => false,
+            'properties' => [],
+        ],
+        [
+            'alias'   => 'companygemeente_code',
+            'label'   => 'Company Municipality Code',
+            'type'    => 'text',
+            'group'   => 'core',
+            'object'  => 'company',
+            'visible' => false,
+            'properties' => [],
+        ],
+        [
+            'alias'   => 'companygemeente_naam',
+            'label'   => 'Company Municipality Name',
+            'type'    => 'text',
+            'group'   => 'core',
+            'object'  => 'company',
+            'visible' => false,
+            'properties' => [],
+        ],
+        [
+            'alias'   => 'companyprovincie_code',
+            'label'   => 'Company Province Code',
+            'type'    => 'text',
+            'group'   => 'core',
+            'object'  => 'company',
+            'visible' => false,
+            'properties' => [],
+        ],
+        [
+            'alias'   => 'companylatitude',
+            'label'   => 'Company Latitude',
+            'type'    => 'number',
+            'group'   => 'core',
+            'object'  => 'company',
+            'visible' => false,
+            'properties' => ['roundmode' => 4, 'scale' => 8],
+        ],
+        [
+            'alias'   => 'companylongitude',
+            'label'   => 'Company Longitude',
+            'type'    => 'number',
+            'group'   => 'core',
+            'object'  => 'company',
+            'visible' => false,
+            'properties' => ['roundmode' => 4, 'scale' => 8],
+        ],
+    ];
+
     public function __construct(
         private FieldModel $fieldModel,
         private LoggerInterface $logger,
     ) {
     }
 
+    private function allFields(): array
+    {
+        return array_merge(self::LEAD_FIELDS, self::COMPANY_FIELDS);
+    }
+
     public function installFields(): void
     {
-        foreach (self::FIELDS as $config) {
+        foreach ($this->allFields() as $config) {
             $existing = $this->fieldModel->getEntityByAlias($config['alias']);
 
             if ($existing) {
@@ -138,7 +220,7 @@ class FieldInstaller
 
     public function fieldsExist(): bool
     {
-        foreach (self::FIELDS as $config) {
+        foreach ($this->allFields() as $config) {
             $field = $this->fieldModel->getEntityByAlias($config['alias']);
             if (null === $field) {
                 return false;
