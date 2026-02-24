@@ -103,15 +103,24 @@ class PdokLookupSubscriber implements EventSubscriberInterface
 .pdok-spinner{animation:pdok-spin 1s linear infinite;display:inline-block}
 </style>
 <style id="pdok-hide-fields">
-/* Hide detail fields instantly (before JS wraps them in <details>) */
-.form-group:has(#lead_straatnaam),.form-group:has(#lead_gemeente_code),
-.form-group:has(#lead_gemeente_naam),.form-group:has(#lead_provincie_code),
-.form-group:has(#lead_house_number),.form-group:has(#lead_house_number_addition),
-.form-group:has(#lead_latitude),.form-group:has(#lead_longitude),
-.form-group:has(#company_companystraatnaam),.form-group:has(#company_companygemeente_code),
-.form-group:has(#company_companygemeente_naam),.form-group:has(#company_companyprovincie_code),
-.form-group:has(#company_companyhouse_number),.form-group:has(#company_companyhouse_number_addition),
-.form-group:has(#company_companylatitude),.form-group:has(#company_companylongitude)
+/* Hide detail fields until JS wraps them in the <details> collapsible.
+   Selector: .form-group that contains a detail field AND is NOT inside .pdok-detail-body */
+.form-group:not(.pdok-detail-body .form-group):has(#lead_straatnaam),
+.form-group:not(.pdok-detail-body .form-group):has(#lead_gemeente_code),
+.form-group:not(.pdok-detail-body .form-group):has(#lead_gemeente_naam),
+.form-group:not(.pdok-detail-body .form-group):has(#lead_provincie_code),
+.form-group:not(.pdok-detail-body .form-group):has(#lead_house_number),
+.form-group:not(.pdok-detail-body .form-group):has(#lead_house_number_addition),
+.form-group:not(.pdok-detail-body .form-group):has(#lead_latitude),
+.form-group:not(.pdok-detail-body .form-group):has(#lead_longitude),
+.form-group:not(.pdok-detail-body .form-group):has(#company_companystraatnaam),
+.form-group:not(.pdok-detail-body .form-group):has(#company_companygemeente_code),
+.form-group:not(.pdok-detail-body .form-group):has(#company_companygemeente_naam),
+.form-group:not(.pdok-detail-body .form-group):has(#company_companyprovincie_code),
+.form-group:not(.pdok-detail-body .form-group):has(#company_companyhouse_number),
+.form-group:not(.pdok-detail-body .form-group):has(#company_companyhouse_number_addition),
+.form-group:not(.pdok-detail-body .form-group):has(#company_companylatitude),
+.form-group:not(.pdok-detail-body .form-group):has(#company_companylongitude)
 {display:none!important}
 </style>
 <script>
@@ -414,26 +423,36 @@ class PdokLookupSubscriber implements EventSubscriberInterface
         details.appendChild(body);
 
         groups.forEach(function(fg){
-            fg.style.display='';
             body.appendChild(fg);
         });
-
-        // Remove the instant-hide stylesheet now that fields are inside <details>
-        var hideSheet=document.getElementById('pdok-hide-fields');
-        if(hideSheet)hideSheet.remove();
     }
 
+    // Run init when DOM is ready
     if(document.readyState==='loading'){
         document.addEventListener('DOMContentLoaded',init);
     }else{
         init();
     }
 
+    // Mautic loads pages via AJAX - watch for form insertion
     if(window.jQuery){
         jQuery(document).on('ajaxComplete',function(){
-            setTimeout(init,200);
+            setTimeout(init,300);
         });
     }
+
+    // Fallback: MutationObserver to catch forms inserted by AJAX
+    var obsTimer=null;
+    var obs=new MutationObserver(function(){
+        if(document.getElementById('pdok-lookup-card'))return;
+        if(obsTimer)clearTimeout(obsTimer);
+        obsTimer=setTimeout(function(){
+            if(document.querySelector('form[name="lead"]')||document.querySelector('form[name="company"]')){
+                init();
+            }
+        },100);
+    });
+    obs.observe(document.body,{childList:true,subtree:true});
 })();
 </script>
 HTML;
