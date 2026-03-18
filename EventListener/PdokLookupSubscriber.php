@@ -61,18 +61,25 @@ class PdokLookupSubscriber implements EventSubscriberInterface
         $response = $event->getResponse();
         $content  = $response->getContent();
 
-        if (false === $content || !str_contains($content, '</body>')) {
+        if (false === $content) {
             return;
         }
 
-        // Inject before the last </body> tag
-        $pos = strrpos($content, '</body>');
-        if (false === $pos) {
+        if (str_contains($content, '<!-- PDOK Address Lookup Card — MauticGeocoderBundle -->')) {
             return;
         }
 
         $injectable = $this->getInjectableContent();
-        $content    = substr($content, 0, $pos).$injectable."\n".substr($content, $pos);
+
+        // Full HTML responses contain </body>; AJAX fragments generally don't.
+        // Support both so first AJAX loads can initialize PDOK UI as well.
+        $pos = strrpos($content, '</body>');
+        if (false !== $pos) {
+            $content = substr($content, 0, $pos).$injectable."\n".substr($content, $pos);
+        } else {
+            $content .= "\n".$injectable;
+        }
+
         $response->setContent($content);
     }
 
@@ -126,6 +133,15 @@ class PdokLookupSubscriber implements EventSubscriberInterface
 <script>
 (function(){
     'use strict';
+
+    // Prevent duplicate global handlers when script is injected more than once.
+    if(window.__pdokLookupBootstrapDone){
+        if(typeof window.__pdokLookupInit==='function'){
+            window.__pdokLookupInit();
+        }
+        return;
+    }
+    window.__pdokLookupBootstrapDone=true;
 
     // SVG icons (inline, no FA dependency)
     var ICO_SEARCH='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
@@ -427,18 +443,56 @@ class PdokLookupSubscriber implements EventSubscriberInterface
         });
     }
 
-    // Run init when DOM is ready
-    if(document.readyState==='loading'){
-        document.addEventListener('DOMContentLoaded',init);
-    }else{
-        init();
+    function queueInit(){
+        // Staggered retries handle async form rendering on first AJAX load.
+        setTimeout(init,0);
+        setTimeout(init,120);
+        setTimeout(init,400);
     }
 
-    // Mautic loads pages via AJAX - watch for form insertion
+    window.__pdokLookupInit=queueInit;
+
+    // Run init when DOM is ready
+    if(document.readyState==='loading'){
+        document.addEventListener('DOMContentLoaded',queueInit);
+    }else{
+        queueInit();
+    }
+
+    // Mautic lifecycle hook for AJAX page navigation.
+    if(window.mQuery){
+        window.mQuery(document)
+            .off('mautic:onPageLoad:after.pdokLookup')
+            .on('mautic:onPageLoad:after.pdokLookup',function(){
+                queueInit();
+            });
+    }
+
+    // Legacy fallback when generic jQuery ajaxComplete fires.
     if(window.jQuery){
-        jQuery(document).on('ajaxComplete',function(){
-            setTimeout(init,300);
-        });
+        window.jQuery(document)
+            .off('ajaxComplete.pdokLookup')
+            .on('ajaxComplete.pdokLookup',function(){
+                setTimeout(queueInit,120);
+            });
+    }
+
+    // If mQuery is not available yet, bind once it appears.
+    if(!window.mQuery){
+        var bindRetries=0;
+        var bindTimer=setInterval(function(){
+            bindRetries++;
+            if(window.mQuery){
+                window.mQuery(document)
+                    .off('mautic:onPageLoad:after.pdokLookup')
+                    .on('mautic:onPageLoad:after.pdokLookup',function(){
+                        queueInit();
+                    });
+                clearInterval(bindTimer);
+            }else if(bindRetries>80){
+                clearInterval(bindTimer);
+            }
+        },50);
     }
 
     // Fallback: MutationObserver to catch forms inserted by AJAX
@@ -448,7 +502,7 @@ class PdokLookupSubscriber implements EventSubscriberInterface
         if(obsTimer)clearTimeout(obsTimer);
         obsTimer=setTimeout(function(){
             if(document.querySelector('form[name="lead"]')||document.querySelector('form[name="company"]')){
-                init();
+                queueInit();
             }
         },100);
     });
