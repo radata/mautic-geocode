@@ -58,8 +58,15 @@ class PdokLookupSubscriber implements EventSubscriberInterface
             $this->logger->debug('Geocoder: could not check integration status, showing card anyway.');
         }
 
-        $response = $event->getResponse();
-        $content  = $response->getContent();
+        $response    = $event->getResponse();
+        $contentType = $response->headers->get('Content-Type', '');
+
+        // Only inject into HTML responses — skip JSON (Mautic AJAX) to avoid corrupting the payload.
+        if (!str_contains($contentType, 'text/html')) {
+            return;
+        }
+
+        $content = $response->getContent();
 
         if (false === $content) {
             return;
